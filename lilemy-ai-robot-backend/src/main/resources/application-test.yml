@@ -1,0 +1,10 @@
+spring:
+  ai:
+    deepseek:
+      api-key: sk-xxx # 填写 DeepSeek Api Key, 改成你自己的
+      base-url: https://api.deepseek.com # DeepSeek 的请求 URL, 可不填，默认值为 api.deepseek.com
+      chat:
+        model: deepseek-flash # 使用哪个模型
+logging:
+  level:
+    org.springframework.ai.chat.client.advisor: debug
