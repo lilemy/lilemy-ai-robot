@@ -1,32 +1,34 @@
 <template>
-  <div class="h-screen max-w-3xl mx-auto relative">
+  <div class="h-screen flex flex-col overflow-y-auto" ref="chatContainer">
     <!-- 聊天记录区域 -->
-    <div class="overflow-y-auto pb-24 pt-4 px-4">
-      <!-- 用户提问消息（靠右） -->
-      <div class="flex justify-end mb-4">
-        <div class="quesiton-container">
-          <p>你是谁</p>
+    <div class="flex-1 max-w-3xl mx-auto pb-24 pt-4 px-4">
+      <!-- 遍历聊天记录 -->
+      <template v-for="(chat, index) in chatList" :key="index">
+        <!-- 用户提问消息（靠右） -->
+        <div v-if="chat.role === 'user'" class="flex justify-end mb-4">
+          <div class="quesiton-container">
+            <p>{{ chat.content }}</p>
+          </div>
         </div>
-      </div>
 
-      <!-- 大模型回复消息（靠左） -->
-      <div class="flex mb-4">
-        <div class="shrink-0 mr-3">
-          <div class="w-8 h-8  rounded-full flex items-center justify-center border border-gray-200">
-            <SvgIcon name="deepseek-logo" customCss="w-5 h-5"/>
+        <!-- 大模型回复消息（靠左） -->
+        <div v-else class="flex mb-4">
+          <!-- 头像 -->
+          <div class="shrink-0 mr-3">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center border border-gray-200">
+              <SvgIcon name="deepseek-logo" customCss="w-5 h-5"></SvgIcon>
+            </div>
+          </div>
+          <!-- 回复的内容 -->
+          <div class="p-1 max-w-[80%] mb-2">
+            <p>{{ chat.content }}</p>
           </div>
         </div>
-        <div class="bg-white rounded-2xl px-1 py-1 max-w-[80%]">
-          <div class="mb-2">
-            <p>我是DeepSeek Chat，由深度求索公司开发的智能AI助手！✨
-              我可以帮你解答各种问题，无论是学习、工作，还是日常生活中的小困惑，都可以找我聊聊。有什么我可以帮你的吗？😊</p>
-          </div>
-        </div>
-      </div>
+      </template>
     </div>
 
     <!-- 提问输入框 -->
-    <div class="absolute bottom-0 left-0 w-full mb-5">
+    <div class="sticky max-w-3xl mx-auto bg-white bottom-0 left-0 w-full">
       <div class="bg-gray-100 rounded-3xl px-4 py-3 mx-4 border border-gray-200">
         <textarea
             v-model="message"
@@ -34,14 +36,17 @@
             class="bg-transparent border-none outline-none w-full text-sm resize-none min-h-6"
             rows="2"
             @input="autoResize"
+            @keydown.enter.prevent="sendMessage"
             ref="textareaRef"
         />
 
         <!-- 发送按钮 -->
         <div class="flex justify-end">
           <button
-              class="flex items-center justify-center bg-[#4d6bfe] rounded-full w-8 h-8 border border-[#4d6bfe] hover:bg-[#3b5bef] transition-colors">
-            <SvgIcon name="up-arrow" customCss="w-5 h-5 text-white"/>
+              @click="sendMessage"
+              :disabled="!message.trim()"
+              class="flex items-center justify-center bg-[#4d6bfe] rounded-full w-8 h-8 border border-[#4d6bfe] hover:bg-[#3b5bef] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            <SvgIcon name="up-arrow" customCss="w-5 h-5 text-white"></SvgIcon>
           </button>
         </div>
       </div>
@@ -52,7 +57,7 @@
 </template>
 
 <script setup>
-import {ref} from 'vue';
+import {nextTick, onBeforeUnmount, ref} from 'vue';
 import SvgIcon from '@/components/SvgIcon.vue'
 
 // 输入的消息
@@ -64,13 +69,129 @@ const textareaRef = ref(null);
 // 自动调整文本域高度
 const autoResize = () => {
   const textarea = textareaRef.value;
-  if (textarea) { // 若文本域存在
-    textarea.style.height = 'auto'; // 1. 先将高度重置为 'auto'
-    textarea.style.height = textarea.scrollHeight + 'px'; // 2. 再设置为内容的实际高度
+  if (textarea) {
+    // 重置高度以获取正确的滚动高度
+    textarea.style.height = 'auto'
+
+    // 计算新高度，但最大不超过 300px
+    const newHeight = Math.min(textarea.scrollHeight, 300);
+    textarea.style.height = newHeight + 'px';
+
+    // 如果内容超出 300px，则启用滚动
+    textarea.style.overflowY = textarea.scrollHeight > 300 ? 'auto' : 'hidden';
   }
-};
+}
+
+// 聊天记录 (给个默认的问候语)
+const chatList = ref([
+  {
+    role: 'assistant',
+    content: '我是小新智能 AI 助手！✨ 我可以帮你解答各种问题，无论是学习、工作，还是日常生活中的小困惑，都可以找我聊聊。有什么我可以帮你的吗？😊'
+  }
+])
+
+// SSE 连接
+let eventSource = null;
+const isSending = ref(false)
+// 发送消息
+const sendMessage = async () => {
+  // 校验发送的消息不能为空
+  if (!message.value.trim() || isSending.value) return
+  isSending.value = true
+
+  // 将用户发送的消息添加到 chatList 聊天列表中
+  const userMessage = message.value.trim()
+  chatList.value.push({role: 'user', content: userMessage})
+
+  // 点击发送按钮后，清空输入框
+  message.value = ''
+  // 将输入框的高度重置
+  if (textareaRef.value) {
+    textareaRef.value.style.height = 'auto'
+  }
+
+  // 添加一个占位的回复消息
+  chatList.value.push({role: 'assistant', content: ''})
+
+  try {
+    // 建立 SSE 连接
+    eventSource = new EventSource(`http://localhost:8911/api/ai/generateStream?message=${encodeURIComponent(userMessage)}`)
+    // 响应的回答
+    let responseText = ''
+
+    // 处理消息事件
+    eventSource.onmessage = (event) => {
+      console.log('接收到数据: ', event.data)
+      if (event.data) { // 若响应数据不为空
+        // 持续追加流式回答
+        responseText += event.data;
+
+        // 更新最后一条消息
+        chatList.value[chatList.value.length - 1].content = responseText;
+        // 滚动到底部
+        scrollToBottom()
+      }
+    }
+
+    // 处理错误
+    eventSource.onerror = (error) => {
+      // 后端 Flux 完成和网络故障均可能触发 error，不能通过 eventPhase 判断
+      if (!responseText) {
+        console.error('SSE 请求失败，请检查后端服务和网络连接。', error)
+        chatList.value[chatList.value.length - 1].content = '暂未收到回答，请检查后端服务是否启动，或稍后重试。'
+      } else {
+        // 保留已经收到的回答；当前后端未发送完成事件，无法据此确认回答完整
+        console.info('SSE 连接已断开，已保留收到的回答。')
+      }
+
+      // 关闭 SSE
+      closeSSE()
+      // 滚动到底部
+      scrollToBottom()
+    }
+  } catch (error) {
+    console.error('发送消息错误: ', error)
+    // 提示用户 “请求出错”
+    chatList.value[chatList.value.length - 1].content = '抱歉，请求出错了，请稍后重试。'
+    closeSSE()
+    // 滚动到底部
+    await scrollToBottom()
+  }
+
+}
+
+// 关闭 SSE 连接
+const closeSSE = () => {
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+  isSending.value = false
+}
+
+// 组件卸载时自动关闭连接
+onBeforeUnmount(() => {
+  closeSSE()
+})
+
+// 聊天容器引用
+const chatContainer = ref(null)
+
+// 滚动到底部
+const scrollToBottom = async () => {
+  await nextTick() // 等待 Vue.js 完成 DOM 更新
+  if (chatContainer.value) { // 若容器存在
+    // 将容器的滚动条位置设置到最底部
+    const container = chatContainer.value;
+    container.scrollTop = container.scrollHeight;
+  }
+}
 </script>
 
 <style scoped>
+/* 聊天内容区域样式 */
+.overflow-y-auto {
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent; /* 自定义滚动条颜色 */
+}
 </style>
 

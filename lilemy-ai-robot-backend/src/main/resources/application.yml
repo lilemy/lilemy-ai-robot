@@ -6,3 +6,5 @@ spring:
 server:
   # 项目启动端口
   port: 8911
+  servlet:
+    context-path: /api
