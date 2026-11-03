@@ -1,5 +1,6 @@
 package com.lilemy.airobot.controller;
 
+import com.lilemy.airobot.model.AIResponse;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.Generation;
@@ -44,17 +45,18 @@ public class DeepSeekChatController {
      * @return 回复
      */
     @GetMapping(value = "/generateStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> generateStream(@RequestParam(value = "message", defaultValue = "你是谁？") String message) {
+    public Flux<AIResponse> generateStream(@RequestParam(value = "message", defaultValue = "你是谁？") String message) {
         // 构建提示词
         Prompt prompt = new Prompt(new UserMessage(message));
 
         // 流式输出
         return chatModel.stream(prompt).mapNotNull(chatResponse -> {
             Generation result = chatResponse.getResult();
-            if (result == null) {
-                return null;
+            String text = "";
+            if (result != null) {
+                text = result.getOutput().getText();
             }
-            return result.getOutput().getText();
+            return AIResponse.builder().v(text).build();
         });
     }
 }

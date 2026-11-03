@@ -20,8 +20,8 @@
             </div>
           </div>
           <!-- 回复的内容 -->
-          <div class="p-1 max-w-[80%] mb-2">
-            <p>{{ chat.content }}</p>
+          <div class="p-1 mb-2 max-w-[90%]">
+            <StreamMarkdownRender :content="chat.content"/>
           </div>
         </div>
       </template>
@@ -59,6 +59,7 @@
 <script setup>
 import {nextTick, onBeforeUnmount, ref} from 'vue';
 import SvgIcon from '@/components/SvgIcon.vue'
+import StreamMarkdownRender from '@/components/StreamMarkdownRender.vue'
 
 // 输入的消息
 const message = ref('')
@@ -123,11 +124,15 @@ const sendMessage = async () => {
     eventSource.onmessage = (event) => {
       console.log('接收到数据: ', event.data)
       if (event.data) { // 若响应数据不为空
+        // 解析 JSON
+        let response = JSON.parse(event.data)
+        if (typeof response.v !== 'string') return;
+
         // 持续追加流式回答
-        responseText += event.data;
+        responseText += response.v;
 
         // 更新最后一条消息
-        chatList.value[chatList.value.length - 1].content = responseText;
+        chatList.value[chatList.value.length - 1].content = responseText
         // 滚动到底部
         scrollToBottom()
       }
