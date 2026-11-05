@@ -1,4 +1,8 @@
 spring:
+  cassandra:
+    contactPoints: 127.0.0.1 # Cassandra 集群节点地址（可配置多个，用逗号分隔）
+    port: 9042 # 端口号
+    localDatacenter: datacenter1 # 必须与集群配置的数据中心名称一致（大小写敏感）
   ai:
     deepseek:
       base-url: https://api.deepseek.com # DeepSeek 的请求 URL, 可不填，默认值为 api.deepseek.com
@@ -11,6 +15,14 @@ spring:
       chat:
         model: gpt-6.1-sol # 模型名称
         temperature: 0.7 # 温度值
+    chat:
+      memory:
+        repository:
+          cassandra:
+            keyspace: lilemy_ai_robot # 指定存储聊天记忆的 Keyspace（类似数据库名）
+            table: ai_chat_memory # 表名
+            time-to-live: 1095d # 数据的自动过期时间（1095天 ≈ 3年）
+            initialize-schema: true  # 自动初始化表结构
 logging:
   level:
     org.springframework.ai.chat.client.advisor: debug

@@ -30,7 +30,7 @@ public class ChatClientConfig {
     @Bean
     public ChatClient chatClient(OpenAiChatModel chatModel) {
         return ChatClient.builder(chatModel)
-                .defaultSystem("请你扮演一名客服人员")
+//                .defaultSystem("请你扮演一名客服人员")
                 .defaultAdvisors(
                         // 添加自定义的日志打印 Advisor
                         new CustomLoggerAdvisor(),
