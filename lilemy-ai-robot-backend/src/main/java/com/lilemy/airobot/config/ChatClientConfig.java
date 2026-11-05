@@ -5,7 +5,7 @@ import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.deepseek.DeepSeekChatModel;
+import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -28,7 +28,7 @@ public class ChatClientConfig {
      * @return ChatClient
      */
     @Bean
-    public ChatClient chatClient(DeepSeekChatModel chatModel) {
+    public ChatClient chatClient(OpenAiChatModel chatModel) {
         return ChatClient.builder(chatModel)
                 .defaultSystem("请你扮演一名客服人员")
                 .defaultAdvisors(
